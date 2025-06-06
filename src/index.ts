@@ -1,4 +1,4 @@
-import { produce, enableMapSet } from "immer";
+import { enableMapSet, immerable, produce } from "immer";
 
 enableMapSet();
 
@@ -12,10 +12,21 @@ export type Database = {
 
 type Layer = {
   storage: Storage;
+  [VAE]: IndexWrapper<typeof VAE>;
   // TODO other indices
 };
 
 const dbForName: Record<string, Database> = {};
+
+function isRef(attribute: Attribute): boolean {
+  return attribute.type === "ref";
+}
+
+function always(): boolean {
+  return true;
+}
+
+type IndexUsage = (attribute: Attribute) => boolean;
 
 const INIT_TIMESTAMP = 0;
 const INIT_TOP_ID = 0;
@@ -27,6 +38,7 @@ export function getDBConnection(name: string): Database {
     layers: [
       {
         storage: memoryStorage,
+        [VAE]: undefined,
       },
     ],
     topId: INIT_TOP_ID,
@@ -60,6 +72,16 @@ type Index<
   L2 extends string | number | symbol,
   L3
 > = Record<L1, Record<L2, Set<L3>>>;
+
+class IndexWrapper<T extends IndexOrder> {
+  [immerable] = true;
+  readonly map: IndexByType<T> = {} as IndexByType<T>;
+
+  /**
+   *
+   */
+  constructor() {}
+}
 
 // set which create a
 class ObjectSet<T> implements Set<T> {
@@ -119,10 +141,10 @@ type AVET = Index<Attribute["name"], Attribute["value"], Entity["id"]>;
 type VAET = Index<Attribute["value"], Attribute["name"], Entity["id"]>;
 type VEAT = Index<Attribute["value"], Entity["id"], Attribute["name"]>;
 
-const EAV = "EAV";
-const AVE = "AVE";
-const VAE = "VAE";
-const VEA = "VEA";
+const EAV = "EAV" as const;
+const AVE = "AVE" as const;
+const VAE = "VAE" as const;
+const VEA = "VEA" as const;
 type IndexOrder = typeof EAV | typeof AVE | typeof VAE | typeof VEA;
 
 type IndexByType<T extends IndexOrder> = T extends typeof EAV
@@ -164,7 +186,7 @@ type Attribute = {
   value: any;
   timestamp: number;
   previousTimestamp: number;
-  type: string;
+  type: AttributeValue;
   cardinality: "single" | "multiple";
 };
 
@@ -268,6 +290,7 @@ export function addEntity(db: Database, entity: Entity): [Database, Entity] {
 function removeEntity(db: Database, entity: Entity) {}
 
 function updateEntity(db: Database, entity: Entity) {}
+
 function nextTimestamp(db: Database): Database["timestamp"] {
   return db.timestamp + 1;
 }
@@ -295,13 +318,6 @@ function nextId(
   }
 
   const newId = topId + 1;
-  const e2 = produce(entity, (draft) => {
-    draft.id = newId;
-  });
-
-  const db2 = produce(db, (draft) => {
-    draft.topId = newId;
-  });
 
   return [newId, newId];
 }
