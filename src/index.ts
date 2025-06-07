@@ -13,7 +13,9 @@ export type Database = {
 type Layer = {
   storage: Storage;
   [VAE]: IndexWrapper<typeof VAE>;
-  // TODO other indices
+  [AVE]: IndexWrapper<typeof AVE>;
+  [VEA]: IndexWrapper<typeof VEA>;
+  [EAV]: IndexWrapper<typeof EAV>;
 };
 
 const dbForName: Record<string, Database> = {};
@@ -30,6 +32,7 @@ type IndexUsage = (attribute: Attribute) => boolean;
 
 const INIT_TIMESTAMP = 0;
 const INIT_TOP_ID = 0;
+
 export function getDBConnection(name: string): Database {
   const db = dbForName[name];
   if (db) return db;
@@ -38,7 +41,22 @@ export function getDBConnection(name: string): Database {
     layers: [
       {
         storage: memoryStorage,
-        [VAE]: undefined,
+        [VAE]: {
+          index: {},
+          predicate: isRef,
+        },
+        [AVE]: {
+          index: {},
+          predicate: always,
+        },
+        [VEA]: {
+          index: {},
+          predicate: always,
+        },
+        [EAV]: {
+          index: {} as EAVT,
+          predicate: always,
+        },
       },
     ],
     topId: INIT_TOP_ID,
@@ -73,15 +91,11 @@ type Index<
   L3
 > = Record<L1, Record<L2, Set<L3>>>;
 
-class IndexWrapper<T extends IndexOrder> {
-  [immerable] = true;
-  readonly map: IndexByType<T> = {} as IndexByType<T>;
+type IndexWrapper<T extends IndexOrder> = {
+  index: IndexByType<T>;
 
-  /**
-   *
-   */
-  constructor() {}
-}
+  predicate: IndexUsage;
+};
 
 // set which create a
 class ObjectSet<T> implements Set<T> {
@@ -193,6 +207,7 @@ type Attribute = {
 const INVALID_TIME = -1;
 
 type AttributeValue = "string" | "number" | "ref";
+
 export function attribute(
   name: string,
   value: any,
@@ -241,12 +256,12 @@ export function valueOfAt(
   return attributeAt(db, entityId, name, ts).value;
 }
 
-function indexAt<T extends IndexOrder>(
+export function indexAt<T extends IndexOrder>(
   db: Database,
-  kind: T,
-  ts: Database["timestamp"] | undefined
-): IndexByType<T> {
-  throw "fefjeifj";
+  indexName: T,
+  ts: Database["timestamp"] = db.timestamp
+): IndexWrapper<T> {
+  return db.layers[ts][indexName] as IndexWrapper<T>;
 }
 
 function evolutionOf(
@@ -268,14 +283,119 @@ function evolutionOf(
   return result;
 }
 
+function datomToIndexPathAVE(datom: Datom): [string, string, number] {
+  if (typeof datom.entityId === "symbol") throw `entityId is not set`;
+  return [datom.attributeName, String(datom.attributeValue), datom.entityId];
+}
+
+function datomToIndexPathEAV(datom: Datom): [number, string, string] {
+  if (typeof datom.entityId === "symbol") throw `entityId is not set`;
+  return [datom.entityId, datom.attributeName, String(datom.attributeValue)];
+}
+
+function datomToIndexPathVAE(datom: Datom): [string, string, number] {
+  if (typeof datom.entityId === "symbol") throw `entityId is not set`;
+  return [String(datom.attributeValue), datom.attributeName, datom.entityId];
+}
+
+function datomToIndexPathVEA(datom: Datom): [string, number, string] {
+  if (typeof datom.entityId === "symbol") throw `entityId is not set`;
+  return [datom.attributeValue, datom.entityId, datom.attributeName];
+}
+
 export function addEntity(db: Database, entity: Entity): [Database, Entity] {
   const [entityToAdd, nextTopId] = fixNewEntity(db, entity);
 
   const newLayer = produce(db.layers.at(-1), (layerDraft) => {
     layerDraft.storage = layerDraft.storage.writeEntity(entityToAdd);
-  });
 
-  // TODO skip indexed for now
+    for (const attribute of Object.values(entityToAdd.attributes)) {
+      const datom: Datom = {
+        entityId: entityToAdd.id,
+        attributeName: attribute.name,
+        attributeValue: attribute.value,
+      };
+
+      const path = datomToIndexPathAVE(datom);
+
+      const indexToUpdate = layerDraft[AVE].index;
+
+      if (!indexToUpdate[path[0]]) {
+        indexToUpdate[path[0]] = {};
+      }
+      const record = indexToUpdate[path[0]];
+
+      if (!record[path[1]]) {
+        record[path[1]] = new Set();
+      }
+      record[path[1]].add(Number(path[2]));
+    }
+
+    for (const attribute of Object.values(entityToAdd.attributes)) {
+      const datom: Datom = {
+        entityId: entityToAdd.id,
+        attributeName: attribute.name,
+        attributeValue: attribute.value,
+      };
+
+      const path = datomToIndexPathEAV(datom);
+
+      const indexToUpdate = layerDraft[EAV].index;
+
+      if (!indexToUpdate[path[0]]) {
+        indexToUpdate[path[0]] = {};
+      }
+      const record = indexToUpdate[path[0]];
+
+      if (!record[path[1]]) {
+        record[path[1]] = new Set();
+      }
+      record[path[1]].add(path[2]);
+    }
+
+    for (const attribute of Object.values(entityToAdd.attributes)) {
+      const datom: Datom = {
+        entityId: entityToAdd.id,
+        attributeName: attribute.name,
+        attributeValue: attribute.value,
+      };
+
+      const path = datomToIndexPathVAE(datom);
+
+      const indexToUpdate = layerDraft[VAE].index;
+
+      if (!indexToUpdate[path[0]]) {
+        indexToUpdate[path[0]] = {};
+      }
+      const record = indexToUpdate[path[0]];
+
+      if (!record[path[1]]) {
+        record[path[1]] = new Set();
+      }
+      record[path[1]].add(Number(path[2]));
+    }
+    for (const attribute of Object.values(entityToAdd.attributes)) {
+      const datom: Datom = {
+        entityId: entityToAdd.id,
+        attributeName: attribute.name,
+        attributeValue: attribute.value,
+      };
+
+      const path = datomToIndexPathVEA(datom);
+
+      const indexToUpdate = layerDraft[VEA].index;
+
+      if (!indexToUpdate[path[0]]) {
+        indexToUpdate[path[0]] = {} as any;
+      }
+      const record = indexToUpdate[path[0]];
+
+      if (!record[path[1]]) {
+        record[path[1]] = new Set();
+      }
+      record[path[1]].add(path[2]);
+    }
+  });
 
   return [
     produce(db, (dbDraft) => {
