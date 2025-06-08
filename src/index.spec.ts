@@ -9,6 +9,7 @@ import {
   entityAt,
   getDBConnection,
   indexAt,
+  removeEntity,
   valueOfAt,
 } from ".";
 
@@ -222,12 +223,6 @@ describe("Functional Database", () => {
       expect(e1Second.id).toBe(1);
       expect(e2Second.id).toBe(2);
 
-      expect(
-        Object.values(e1Second.attributes)
-          .map((attr) => attr.timestamp)
-          .every((att) => att === 1)
-      ).toBe(true);
-
       expect(Object.values(e1Second.attributes)).toStrictEqual([
         {
           cardinality: "single",
@@ -249,6 +244,11 @@ describe("Functional Database", () => {
           value: "qix",
         },
       ]);
+
+      expect(indexAt(newDB, "AVE").index).toStrictEqual({
+        baz: { "123": new Set([1]) },
+        buzz: { qix: new Set([2]) },
+      });
     });
   });
 
@@ -306,6 +306,23 @@ describe("Functional Database", () => {
 
       const vea = indexAt(dbWithE1, "VEA");
       expect(vea.index).toStrictEqual({ bar: { 1: new Set(["foo"]) } });
+    });
+  });
+
+  describe("remove entity", () => {
+    test("cannot be found after", () => {
+      const db = getDBConnection("update-index");
+
+      const e1 = entity();
+      const e1Prime = addAttribute(
+        e1,
+        attribute("foo", "bar", "string", "single")
+      );
+      const [dbWithE1, addedEntity] = addEntity(db, e1Prime);
+
+      const newDb = removeEntity(dbWithE1, addedEntity.id);
+
+      expect(() => entityAt(newDb, addedEntity.id)).toThrow();
     });
   });
 });

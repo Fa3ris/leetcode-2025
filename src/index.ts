@@ -41,22 +41,10 @@ export function getDBConnection(name: string): Database {
     layers: [
       {
         storage: memoryStorage,
-        [VAE]: {
-          index: {},
-          predicate: isRef,
-        },
-        [AVE]: {
-          index: {},
-          predicate: always,
-        },
-        [VEA]: {
-          index: {},
-          predicate: always,
-        },
-        [EAV]: {
-          index: {} as EAVT,
-          predicate: always,
-        },
+        [VAE]: { index: {} },
+        [AVE]: { index: {} },
+        [VEA]: { index: {} },
+        [EAV]: { index: {} as EAVT },
       },
     ],
     topId: INIT_TOP_ID,
@@ -93,8 +81,6 @@ type Index<
 
 type IndexWrapper<T extends IndexOrder> = {
   index: IndexByType<T>;
-
-  predicate: IndexUsage;
 };
 
 // set which create a
@@ -175,8 +161,11 @@ const memoryStorage: MemoryStorage = {
   map: new Map<Entity["id"], Entity>(),
 
   getEntity(id: Entity["id"]): Entity {
-    return this.map.get(id);
+    const entity = this.map.get(id);
+    if (entity === undefined) throw new Error("");
+    return entity;
   },
+
   writeEntity(entity: Entity): MemoryStorage {
     return produce(this, (draft) => {
       draft.map.set(entity.id, entity);
@@ -445,7 +434,18 @@ function addEntityToIndices(layerDraft: Layer, entityToAdd: Entity) {
   }
 }
 
-function removeEntity(db: Database, entity: Entity) {}
+export function removeEntity(db: Database, entityId: Entity["id"]): Database {
+  const entityToRemove = entityAt(db, entityId);
+  const newLayer = produce(db.layers.at(-1), (draftLayer) => {
+    draftLayer.storage = draftLayer.storage.dropEntity(entityToRemove);
+  });
+
+  // TODO update indexes later - only VAET apparently
+  return produce(db, (draft) => {
+    draft.layers.push(newLayer);
+    draft.timestamp = nextTimestamp(draft);
+  });
+}
 
 function updateEntity(db: Database, entity: Entity) {}
 
