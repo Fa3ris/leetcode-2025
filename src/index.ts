@@ -447,7 +447,36 @@ export function removeEntity(db: Database, entityId: Entity["id"]): Database {
   });
 }
 
-function updateEntity(db: Database, entity: Entity) {}
+export function updateEntity(
+  db: Database,
+  entityId: Entity["id"],
+  attribute: Attribute
+): Database {
+  const nextDbTimestamp = nextTimestamp(db);
+
+  const newLayer = produce(db.layers.at(-1), (layerDraft) => {
+    const entity = entityAt(db, entityId);
+
+    const attributeToUpdate = entity.attributes[attribute.name];
+
+    const newAttribute = produce(attributeToUpdate, (attributeDraft) => {
+      attributeDraft.value = attribute.value;
+      attribute.previousTimestamp = attribute.timestamp;
+      attribute.timestamp = nextDbTimestamp;
+    });
+
+    const updatedEntity = produce(entity, (draft) => {
+      draft.attributes[newAttribute.name] = newAttribute;
+    });
+
+    layerDraft.storage = layerDraft.storage.writeEntity(updatedEntity);
+  });
+
+  return produce(db, (draft) => {
+    draft.timestamp = nextDbTimestamp;
+    draft.layers.push(newLayer);
+  });
+}
 
 function nextTimestamp(db: Database): Database["timestamp"] {
   return db.timestamp + 1;

@@ -10,6 +10,7 @@ import {
   getDBConnection,
   indexAt,
   removeEntity,
+  updateEntity,
   valueOfAt,
 } from ".";
 
@@ -311,7 +312,7 @@ describe("Functional Database", () => {
 
   describe("remove entity", () => {
     test("cannot be found after", () => {
-      const db = getDBConnection("update-index");
+      const db = getDBConnection("remove-entity");
 
       const e1 = entity();
       const e1Prime = addAttribute(
@@ -323,6 +324,28 @@ describe("Functional Database", () => {
       const newDb = removeEntity(dbWithE1, addedEntity.id);
 
       expect(() => entityAt(newDb, addedEntity.id)).toThrow();
+    });
+  });
+
+  describe("update entity", () => {
+    test("is updated", () => {
+      const db = getDBConnection("update-entity");
+
+      const e1 = entity();
+      const e1Prime = addAttribute(
+        e1,
+        attribute("foo", "bar", "string", "single")
+      );
+
+      const [dbWithE1, addedEntity] = addEntity(db, e1Prime);
+
+      const updatedAttribute = attribute("foo", "fizzbuz", "string", "single");
+
+      const newDb = updateEntity(dbWithE1, addedEntity.id, updatedAttribute);
+
+      const attrValue = valueOfAt(newDb, addedEntity.id, "foo");
+
+      expect(attrValue).toBe("fizzbuz");
     });
   });
 });
