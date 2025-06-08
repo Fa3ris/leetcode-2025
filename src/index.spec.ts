@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   addAttribute,
+  addEntities,
   addEntity,
   attribute,
   attributeAt,
@@ -198,6 +199,56 @@ describe("Functional Database", () => {
         expect(attr).toStrictEqual(e6.attributes.baz);
         expect(attrAtTimestamp).toStrictEqual(e6.attributes.baz);
       });
+    });
+  });
+
+  describe("add multiple entities", () => {
+    test("they are all set to the same timestamp", () => {
+      const db = getDBConnection("number-test-db");
+      const e1 = entity();
+      const e1Prime = addAttribute(
+        e1,
+        attribute("baz", 123, "number", "single")
+      );
+      const e2 = entity();
+      const e2Prime = addAttribute(
+        e2,
+        attribute("buzz", "qix", "string", "single")
+      );
+      const [newDB, e1Second, e2Second] = addEntities(db, e1Prime, e2Prime);
+
+      expect(newDB.timestamp).toBe(1);
+      expect(newDB.topId).toBe(2);
+      expect(e1Second.id).toBe(1);
+      expect(e2Second.id).toBe(2);
+
+      expect(
+        Object.values(e1Second.attributes)
+          .map((attr) => attr.timestamp)
+          .every((att) => att === 1)
+      ).toBe(true);
+
+      expect(Object.values(e1Second.attributes)).toStrictEqual([
+        {
+          cardinality: "single",
+          name: "baz",
+          previousTimestamp: -1,
+          timestamp: 1,
+          type: "number",
+          value: 123,
+        },
+      ]);
+
+      expect(Object.values(e2Second.attributes)).toStrictEqual([
+        {
+          cardinality: "single",
+          name: "buzz",
+          previousTimestamp: -1,
+          timestamp: 1,
+          type: "string",
+          value: "qix",
+        },
+      ]);
     });
   });
 

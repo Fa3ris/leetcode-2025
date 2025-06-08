@@ -307,94 +307,7 @@ export function addEntity(db: Database, entity: Entity): [Database, Entity] {
   const [entityToAdd, nextTopId] = fixNewEntity(db, entity);
 
   const newLayer = produce(db.layers.at(-1), (layerDraft) => {
-    layerDraft.storage = layerDraft.storage.writeEntity(entityToAdd);
-
-    for (const attribute of Object.values(entityToAdd.attributes)) {
-      const datom: Datom = {
-        entityId: entityToAdd.id,
-        attributeName: attribute.name,
-        attributeValue: attribute.value,
-      };
-
-      const path = datomToIndexPathAVE(datom);
-
-      const indexToUpdate = layerDraft[AVE].index;
-
-      if (!indexToUpdate[path[0]]) {
-        indexToUpdate[path[0]] = {};
-      }
-      const record = indexToUpdate[path[0]];
-
-      if (!record[path[1]]) {
-        record[path[1]] = new Set();
-      }
-      record[path[1]].add(Number(path[2]));
-    }
-
-    for (const attribute of Object.values(entityToAdd.attributes)) {
-      const datom: Datom = {
-        entityId: entityToAdd.id,
-        attributeName: attribute.name,
-        attributeValue: attribute.value,
-      };
-
-      const path = datomToIndexPathEAV(datom);
-
-      const indexToUpdate = layerDraft[EAV].index;
-
-      if (!indexToUpdate[path[0]]) {
-        indexToUpdate[path[0]] = {};
-      }
-      const record = indexToUpdate[path[0]];
-
-      if (!record[path[1]]) {
-        record[path[1]] = new Set();
-      }
-      record[path[1]].add(path[2]);
-    }
-
-    for (const attribute of Object.values(entityToAdd.attributes)) {
-      const datom: Datom = {
-        entityId: entityToAdd.id,
-        attributeName: attribute.name,
-        attributeValue: attribute.value,
-      };
-
-      const path = datomToIndexPathVAE(datom);
-
-      const indexToUpdate = layerDraft[VAE].index;
-
-      if (!indexToUpdate[path[0]]) {
-        indexToUpdate[path[0]] = {};
-      }
-      const record = indexToUpdate[path[0]];
-
-      if (!record[path[1]]) {
-        record[path[1]] = new Set();
-      }
-      record[path[1]].add(Number(path[2]));
-    }
-    for (const attribute of Object.values(entityToAdd.attributes)) {
-      const datom: Datom = {
-        entityId: entityToAdd.id,
-        attributeName: attribute.name,
-        attributeValue: attribute.value,
-      };
-
-      const path = datomToIndexPathVEA(datom);
-
-      const indexToUpdate = layerDraft[VEA].index;
-
-      if (!indexToUpdate[path[0]]) {
-        indexToUpdate[path[0]] = {} as any;
-      }
-      const record = indexToUpdate[path[0]];
-
-      if (!record[path[1]]) {
-        record[path[1]] = new Set();
-      }
-      record[path[1]].add(path[2]);
-    }
+    addEntityToIndices(layerDraft, entityToAdd);
   });
 
   return [
@@ -405,6 +318,131 @@ export function addEntity(db: Database, entity: Entity): [Database, Entity] {
     }),
     entityToAdd,
   ];
+}
+
+export function addEntities(
+  db: Database,
+  ...entities: Entity[]
+): [Database, ...Entity[]] {
+  const nextDbTimestamp = nextTimestamp(db);
+
+  let intermediateDb = db;
+
+  const newEntities = Array.from<Entity>({ length: entities.length });
+  for (const [index, entity] of Object.entries(entities)) {
+    const [newEntity, newTopId] = fixNewEntity(
+      intermediateDb,
+      entity,
+      nextDbTimestamp
+    );
+    newEntities[index] = newEntity;
+    intermediateDb = produce(intermediateDb, (draft) => {
+      draft.topId = newTopId;
+    });
+  }
+
+  let newLayer = db.layers.at(-1);
+  for (const entityToAdd of newEntities) {
+    newLayer = produce(newLayer, (layerDraft) => {
+      addEntityToIndices(layerDraft, entityToAdd);
+    });
+  }
+  const nextDb = produce(intermediateDb, (draft) => {
+    draft.timestamp = nextDbTimestamp;
+    draft.layers.push(newLayer);
+  });
+  return [nextDb, ...newEntities];
+}
+
+function addEntityToIndices(layerDraft: Layer, entityToAdd: Entity) {
+  layerDraft.storage = layerDraft.storage.writeEntity(entityToAdd);
+
+  for (const attribute of Object.values(entityToAdd.attributes)) {
+    const datom: Datom = {
+      entityId: entityToAdd.id,
+      attributeName: attribute.name,
+      attributeValue: attribute.value,
+    };
+
+    const path = datomToIndexPathAVE(datom);
+
+    const indexToUpdate = layerDraft[AVE].index;
+
+    if (!indexToUpdate[path[0]]) {
+      indexToUpdate[path[0]] = {};
+    }
+    const record = indexToUpdate[path[0]];
+
+    if (!record[path[1]]) {
+      record[path[1]] = new Set();
+    }
+    record[path[1]].add(Number(path[2]));
+  }
+
+  for (const attribute of Object.values(entityToAdd.attributes)) {
+    const datom: Datom = {
+      entityId: entityToAdd.id,
+      attributeName: attribute.name,
+      attributeValue: attribute.value,
+    };
+
+    const path = datomToIndexPathEAV(datom);
+
+    const indexToUpdate = layerDraft[EAV].index;
+
+    if (!indexToUpdate[path[0]]) {
+      indexToUpdate[path[0]] = {};
+    }
+    const record = indexToUpdate[path[0]];
+
+    if (!record[path[1]]) {
+      record[path[1]] = new Set();
+    }
+    record[path[1]].add(path[2]);
+  }
+
+  for (const attribute of Object.values(entityToAdd.attributes)) {
+    const datom: Datom = {
+      entityId: entityToAdd.id,
+      attributeName: attribute.name,
+      attributeValue: attribute.value,
+    };
+
+    const path = datomToIndexPathVAE(datom);
+
+    const indexToUpdate = layerDraft[VAE].index;
+
+    if (!indexToUpdate[path[0]]) {
+      indexToUpdate[path[0]] = {};
+    }
+    const record = indexToUpdate[path[0]];
+
+    if (!record[path[1]]) {
+      record[path[1]] = new Set();
+    }
+    record[path[1]].add(Number(path[2]));
+  }
+  for (const attribute of Object.values(entityToAdd.attributes)) {
+    const datom: Datom = {
+      entityId: entityToAdd.id,
+      attributeName: attribute.name,
+      attributeValue: attribute.value,
+    };
+
+    const path = datomToIndexPathVEA(datom);
+
+    const indexToUpdate = layerDraft[VEA].index;
+
+    if (!indexToUpdate[path[0]]) {
+      indexToUpdate[path[0]] = {} as any;
+    }
+    const record = indexToUpdate[path[0]];
+
+    if (!record[path[1]]) {
+      record[path[1]] = new Set();
+    }
+    record[path[1]].add(path[2]);
+  }
 }
 
 function removeEntity(db: Database, entity: Entity) {}
@@ -444,10 +482,11 @@ function nextId(
 
 function fixNewEntity(
   db: Database,
-  entity: Entity
+  entity: Entity,
+  nextTs?: number
 ): [Entity, Database["topId"]] {
   const [newTopId, newId] = nextId(db, entity);
-  const newTimetamp = nextTimestamp(db);
+  const newTimetamp = nextTs ?? nextTimestamp(db);
 
   const e1 = produce(entity, (draft) => {
     draft.id = newId;
