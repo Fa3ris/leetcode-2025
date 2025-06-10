@@ -345,7 +345,20 @@ describe("Functional Database", () => {
 
       const attrValue = valueOfAt(newDb, addedEntity.id, "foo");
 
+
       expect(attrValue).toBe("fizzbuz");
+
+      const eav = indexAt(newDb, "EAV");
+      expect(eav.index).toStrictEqual({ 1: { foo: new Set(["fizzbuz"]) } });
+
+      const vea = indexAt(newDb, "VEA");
+      expect(vea.index).toStrictEqual({ fizzbuz: { 1: new Set(["foo"]) } });
+
+      const vae = indexAt(newDb, "VAE");
+      expect(vae.index).toStrictEqual({ fizzbuz: { foo: new Set([1]) } });
+
+      const ave = indexAt(newDb, "AVE");
+      expect(ave.index).toStrictEqual({ foo: { fizzbuz: new Set([1]) } });
     });
   });
 });

@@ -470,6 +470,59 @@ export function updateEntity(
     });
 
     layerDraft.storage = layerDraft.storage.writeEntity(updatedEntity);
+
+    const datom: Datom = {
+      entityId,
+      attributeName: attributeToUpdate.name,
+      attributeValue: attributeToUpdate.value,
+    };
+
+    // AVE
+    {
+      const path = datomToIndexPathAVE(datom);
+      const indexToUpdate = layerDraft[AVE].index;
+      const record = indexToUpdate[path[0]];
+      delete record[path[1]];
+      record[newAttribute.value] = new Set([datom.entityId]);
+    }
+
+    // EAV
+    {
+      const path = datomToIndexPathEAV(datom);
+      const indexToUpdate = layerDraft[EAV].index;
+      indexToUpdate[path[0]][path[1]].clear();
+      indexToUpdate[path[0]][path[1]].add(newAttribute.value);
+    }
+
+    // VEA
+    {
+      const path = datomToIndexPathVEA(datom);
+      const indexToUpdate = layerDraft[VEA].index;
+      delete indexToUpdate[path[0]];
+      if (!indexToUpdate[newAttribute.value]) {
+        indexToUpdate[newAttribute.value] = {} as any;
+      }
+      const record = indexToUpdate[newAttribute.value];
+      if (!record[path[1]]) {
+        record[path[1]] = new Set();
+      }
+      record[path[1]].add(path[2]);
+    }
+
+    // VAE
+    {
+      const path = datomToIndexPathVAE(datom);
+      const indexToUpdate = layerDraft[VAE].index;
+      delete indexToUpdate[path[0]];
+      if (!indexToUpdate[newAttribute.value]) {
+        indexToUpdate[newAttribute.value] = {} as any;
+      }
+      const record = indexToUpdate[newAttribute.value];
+      if (!record[path[1]]) {
+        record[path[1]] = new Set();
+      }
+      record[path[1]].add(path[2]);
+    }
   });
 
   return produce(db, (draft) => {
@@ -524,25 +577,3 @@ function fixNewEntity(
 
   return [e2, newTopId];
 }
-
-// indexAt({} as Database, EAV, undefined);
-// indexAt({} as Database, VAE, undefined);
-// indexAt({} as Database, VEA, undefined);
-// indexAt({} as Database, AVE, undefined);
-
-const f: Foo = "hello";
-console.log(f);
-
-const toto = {
-  a: "ab",
-  b: [1, 2, 3],
-  c: true,
-};
-
-const newTotot = produce(toto, (draft) => {
-  draft.b.push(4);
-  draft.c = false;
-});
-
-console.log(toto);
-console.log(newTotot);
