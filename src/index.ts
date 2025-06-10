@@ -459,6 +459,81 @@ export function updateEntity(
 
     const attributeToUpdate = entity.attributes[attribute.name];
 
+    if (!attributeToUpdate) {
+      const attributeUpdatedTs = produce(attribute, (draft) => {
+        draft.timestamp = nextDbTimestamp;
+      });
+      const entityToSave = addAttribute(entity, attributeUpdatedTs);
+      layerDraft.storage = layerDraft.storage.writeEntity(entityToSave);
+
+      const datom: Datom = {
+        entityId,
+        attributeName: attribute.name,
+        attributeValue: attribute.value,
+      };
+      {
+        const path = datomToIndexPathAVE(datom);
+
+        const indexToUpdate = layerDraft[AVE].index;
+
+        if (!indexToUpdate[path[0]]) {
+          indexToUpdate[path[0]] = {};
+        }
+        const record = indexToUpdate[path[0]];
+
+        if (!record[path[1]]) {
+          record[path[1]] = new Set();
+        }
+        record[path[1]].add(Number(path[2]));
+      }
+      {
+        const path = datomToIndexPathEAV(datom);
+
+        const indexToUpdate = layerDraft[EAV].index;
+
+        if (!indexToUpdate[path[0]]) {
+          indexToUpdate[path[0]] = {};
+        }
+        const record = indexToUpdate[path[0]];
+
+        if (!record[path[1]]) {
+          record[path[1]] = new Set();
+        }
+        record[path[1]].add(path[2]);
+      }
+
+      {
+        const path = datomToIndexPathVAE(datom);
+
+        const indexToUpdate = layerDraft[VAE].index;
+
+        if (!indexToUpdate[path[0]]) {
+          indexToUpdate[path[0]] = {};
+        }
+        const record = indexToUpdate[path[0]];
+
+        if (!record[path[1]]) {
+          record[path[1]] = new Set();
+        }
+        record[path[1]].add(Number(path[2]));
+      }
+      {
+        const path = datomToIndexPathVEA(datom);
+
+        const indexToUpdate = layerDraft[VEA].index;
+
+        if (!indexToUpdate[path[0]]) {
+          indexToUpdate[path[0]] = {} as any;
+        }
+        const record = indexToUpdate[path[0]];
+
+        if (!record[path[1]]) {
+          record[path[1]] = new Set();
+        }
+        record[path[1]].add(path[2]);
+      }
+      return;
+    }
     const newAttribute = produce(attributeToUpdate, (attributeDraft) => {
       attributeDraft.value = attribute.value;
       attribute.previousTimestamp = attribute.timestamp;
