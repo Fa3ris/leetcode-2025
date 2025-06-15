@@ -1,4 +1,8 @@
 // just follow the specs!!!
+
+
+const MAX_INT = 2 ** 31 - 1;
+const MIN_INT = -(2 ** 31);
 export function myAtoi(s: string): number {
   const notWhitespace = s.search(/\S/);
 
@@ -23,7 +27,19 @@ export function myAtoi(s: string): number {
       ? s.substring(0, firstNonDigitAfterNumber)
       : s;
 
-  const res = Number(pattern) * sign;
+  const res = stringToInteger(pattern) * sign;
 
-  return res < 0 ? Math.max(-(2 ** 31), res) : Math.min(res, 2 ** 31 - 1);
+  return Math.min(Math.max(MIN_INT, res), MAX_INT);
+}
+
+function stringToInteger(s: string): number {
+  let num = 0;
+
+  // ascii '0' is 48
+  for (const digit of s.split("").map((c) => c.charCodeAt(0) - 48)) {
+    num *= 10;
+    num += digit;
+  }
+
+  return num;
 }
