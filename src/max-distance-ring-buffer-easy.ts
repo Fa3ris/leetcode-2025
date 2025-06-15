@@ -91,6 +91,12 @@ function isPalindrome(s: string): boolean {
   return true;
 }
 
+
+
+// zigzag problem - this solution is too complex
+// just need to create numRows buckets of strings and iteratively assign the next char
+// of s to the correct bucket
+// then join all the buckets
 export function convert(s: string, numRows: number): string {
   if (numRows === 1) return s;
   const res: string[] = [];
