@@ -1,4 +1,4 @@
-export class MinHeap {
+export class MaxHeap {
   private holder: number[] = [];
   isEmpty(): boolean {
     return this.holder.length === 0;
@@ -8,9 +8,9 @@ export class MinHeap {
     return this.holder.length;
   }
 
-  private readonly compare = numberAscending;
+  private readonly compare = numberDescending;
 
-  private readonly missingValue = Infinity;
+  private readonly missingValue = -Infinity;
 
   insert(value: number): void {
     this.holder.push(value);
@@ -35,28 +35,6 @@ export class MinHeap {
     this.holder[i] = this.holder[j];
     this.holder[j] = temp;
   }
-
-  /*
-   * node i
-        left child 2*i + 1 
-        right child 2*i + 2 
-    
-        node i
-            parent floor((i - 1) / 2)
-        
-    insert
-        put at last entry then bubble up
-    
-    extract
-        pop first
-        put last as first and push down
-        when swapping with left or right child - choose to put the lowest one as the new parent
-        i.e. sort by the given comparator and take the first
-    
-    min-heap property
-        every node is smaller than its children
-
-   */
 
   peek(): number {
     return this.holder.at(0);
@@ -113,6 +91,6 @@ export class MinHeap {
   }
 }
 
-function numberAscending(a: number, b: number): number {
-  return a - b;
+function numberDescending(a: number, b: number): number {
+  return b - a;
 }
