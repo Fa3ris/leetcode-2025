@@ -5,6 +5,22 @@ type Player = "X" | "O";
 let countToWin: number;
 let allBuckets: Map<Player, number>[];
 
+/*
+ * Same player going twice in a row -> does not pass player as argument
+
+Moving outside of the board -> do nothing
+
+Moving on top of another X or O -> do nothing
+but then need to keep grid
+or change lookup
+
+Negative dimensions -> default to 3
+
+Decimal values -> default to 3
+
+Non-winnable situation, can’t win the game, stalemate -> isGridFilled()
+ */
+
 const createGameBoard = (boardDimension: number = 3) => {
   countToWin = boardDimension;
   const totalBuckets = 2 * boardDimension + 2;
